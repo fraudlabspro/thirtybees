@@ -31,7 +31,7 @@
 				<td>{$client_ip}</td>
 				<td>&nbsp;</td>
 				<td><strong>IP Location</strong></td>
-				<td colspan="4"><a href="http://www.geolocation.com/{$client_ip}" target="_blank">{$location} </a><div style="font-size:12px">{$coordinate}</div></td>
+				<td colspan="4"><a href="http://www.geolocation.com/{$client_ip}" target="_blank">{$location} </a><div style="font-size:12px">{$coordinates}</div></td>
 			</tr>
 			<tr>
 				<td><strong>ISP</strong></td>
@@ -110,7 +110,7 @@
 			<button class="btn btn-default" id="btn-blacklist" data-id="{$transaction_id}">Blacklist Order</button>
 			{/if}
 		</div>
-		
+
 		<div class="clearfix"></div>
 	</p>
 	{/if}
@@ -134,7 +134,7 @@
 			e.preventDefault();
 
 			var reason = prompt('Please enter the reason(s) for blacklisting this order.', '');
-			
+
 			if(reason == null){
 				return;
 			}
