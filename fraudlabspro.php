@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @copyright 2023 FraudLabsPro.com
+ * @copyright 2024 FraudLabsPro.com
  * @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 if (!defined('_PS_VERSION_')) {
@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.1.0';
+		$this->version = '1.1.1';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -237,8 +237,6 @@ class fraudlabspro extends Module
 
 			$location = implode(', ', array_unique(array_diff($location, [''])));
 
-			$triggeredRules = '';
-
 			$this->smarty->assign([
 				'no_result'                  => false,
 				'fraud_score'                => $json->fraudlabspro_score,
@@ -246,7 +244,7 @@ class fraudlabspro extends Module
 				'remaining_credits'          => number_format($json->remaining_credits, 0, '', ','),
 				'client_ip'                  => $json->ip_geolocation->ip,
 				'location'                   => $location,
-				'coordinates'                 => ($json->ip_geolocation->latitude !== null) ? ($json->ip_geolocation->latitude . ', ' . $json->ip_geolocation->longitude) : 'N/A',
+				'coordinates'                => ($json->ip_geolocation->latitude !== null) ? ($json->ip_geolocation->latitude . ', ' . $json->ip_geolocation->longitude) : 'N/A',
 				'isp'                        => ($json->ip_geolocation->isp_name !== null) ? $json->ip_geolocation->isp_name : 'N/A',
 				'domain'                     => ($json->ip_geolocation->domain !== null) ? $json->ip_geolocation->domain : 'N/A',
 				'net_speed'                  => ($json->ip_geolocation->netspeed !== null) ? $json->ip_geolocation->netspeed : 'N/A',
@@ -278,6 +276,22 @@ class fraudlabspro extends Module
 
 	public function renderForm()
 	{
+		$orderStates = OrderState::getOrderStates((int) $this->context->language->id);
+
+		$orderStatuses = [
+			[
+				'id_order_state' => 0,
+				'name' => '',
+			]
+		];
+
+		foreach ($orderStates as $orderState) {
+			$orderStatuses[] = [
+				'id_order_state' => (int) $orderState['id_order_state'],
+				'name' => $orderState['name'],
+			];
+		}
+
 		$fields_form = [
 			'form' => [
 				'legend' => [
@@ -313,7 +327,7 @@ class fraudlabspro extends Module
 						'name'     => 'FLP_APPROVE_STATUS_ID',
 						'required' => false,
 						'options'  => [
-							'query' => array_merge(['id_order_state' => 0], OrderState::getOrderStates((int) $this->context->language->id)),
+							'query' => $orderStatuses,
 							'id'    => 'id_order_state',
 							'name'  => 'name',
 						],
@@ -325,7 +339,7 @@ class fraudlabspro extends Module
 						'name'     => 'FLP_REVIEW_STATUS_ID',
 						'required' => false,
 						'options'  => [
-							'query' => array_merge(['id_order_state' => 0], OrderState::getOrderStates((int) $this->context->language->id)),
+							'query' => $orderStatuses,
 							'id'    => 'id_order_state',
 							'name'  => 'name',
 						],
@@ -337,7 +351,7 @@ class fraudlabspro extends Module
 						'name'     => 'FLP_REJECT_STATUS_ID',
 						'required' => false,
 						'options'  => [
-							'query' => array_merge(['id_order_state' => 0], OrderState::getOrderStates((int) $this->context->language->id)),
+							'query' => $orderStatuses,
 							'id'    => 'id_order_state',
 							'name'  => 'name',
 						],
