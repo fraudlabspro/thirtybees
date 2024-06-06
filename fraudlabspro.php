@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.1.1';
+		$this->version = '1.1.2';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -134,9 +134,10 @@ class fraudlabspro extends Module
 			'verify'  => Configuration::getSslTrustStore(),
 		]);
 
-		try {
-			$body = $guzzle->post(
-				'https://api.fraudlabspro.com/v2/order/screen', [
+		$attempts = 0;
+		do {
+			try {
+				$body = $guzzle->post('https://api.fraudlabspro.com/v2/order/screen', [
 					'form_params' => [
 						'key'             => Configuration::get('FLP_LICENSE_KEY'),
 						'ip'              => $ip,
@@ -167,11 +168,18 @@ class fraudlabspro extends Module
 						'source'          => 'thirtybees',
 						'source_version'  => $this->version,
 					],
-				]
-			)->getBody();
-		} catch (GuzzleException $e) {
-			throw new PrestaShopException('Transport exception: ' . $e->getMessage(), 0, $e);
-		}
+				])->getBody();
+			} catch (GuzzleException $e) {
+				++$attempts;
+
+				// Wait for 3 seconds for next attempt
+				sleep(3);
+				continue;
+			}
+
+			// End the loop
+			break;
+		} while ($attempts < 3);
 
 		if (($json = json_decode($body)) === null) {
 			return true;
@@ -281,14 +289,14 @@ class fraudlabspro extends Module
 		$orderStatuses = [
 			[
 				'id_order_state' => 0,
-				'name' => '',
-			]
+				'name'           => '',
+			],
 		];
 
 		foreach ($orderStates as $orderState) {
 			$orderStatuses[] = [
 				'id_order_state' => (int) $orderState['id_order_state'],
-				'name' => $orderState['name'],
+				'name'           => $orderState['name'],
 			];
 		}
 
@@ -464,9 +472,11 @@ class fraudlabspro extends Module
 			'verify'  => Configuration::getSslTrustStore(),
 		]);
 
-		try {
-			$guzzle->post(
-				'https://api.fraudlabspro.com/v1/order/feedback', [
+		$attempts = 0;
+
+		do {
+			try {
+				$guzzle->post('https://api.fraudlabspro.com/v2/order/feedback', [
 					'form_params' => [
 						'key'    => Configuration::get('FLP_LICENSE_KEY'),
 						'action' => $action,
@@ -475,10 +485,16 @@ class fraudlabspro extends Module
 						'format' => 'json',
 					],
 				]
-			);
-		} catch (GuzzleException $e) {
-			throw new PrestaShopException('Transport exception: ' . $e->getMessage(), 0, $e);
-		}
+				);
+			} catch (GuzzleException $e) {
+				++$attempts;
+				sleep(1);
+				continue;
+			}
+
+			// End the loop
+			break;
+		} while ($attempts < 3);
 
 		return true;
 	}
