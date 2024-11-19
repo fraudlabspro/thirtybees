@@ -82,7 +82,17 @@ class fraudlabspro extends Module
 			return;
 		}
 
-		Db::getInstance()->Execute('INSERT IGNORE INTO `' . _DB_PREFIX_ . 'flp_order_ip` VALUES(' . $params['cart']->id . ', "' . $this->getIP() . '")');
+		$ip = $this->getIP();
+
+		// Validate IP address
+		if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+			return; // Exit if IP is invalid
+		}
+
+		// Securely insert into the database
+		Db::getInstance()->execute(
+			'INSERT IGNORE INTO `' . _DB_PREFIX_ . 'flp_order_ip` (`id_cart`, `ip`) VALUES (' . (int) $params['cart']->id . ', "' . pSQL($ip) . '")'
+		);
 	}
 
 	public function hookNewOrder($params)
@@ -476,15 +486,17 @@ class fraudlabspro extends Module
 
 		do {
 			try {
-				$guzzle->post('https://api.fraudlabspro.com/v2/order/feedback', [
-					'form_params' => [
-						'key'    => Configuration::get('FLP_LICENSE_KEY'),
-						'action' => $action,
-						'id'     => $id,
-						'note'   => $note,
-						'format' => 'json',
-					],
-				]
+				$guzzle->post(
+					'https://api.fraudlabspro.com/v2/order/feedback',
+					[
+						'form_params' => [
+							'key'    => Configuration::get('FLP_LICENSE_KEY'),
+							'action' => $action,
+							'id'     => $id,
+							'note'   => $note,
+							'format' => 'json',
+						],
+					]
 				);
 			} catch (GuzzleException $e) {
 				++$attempts;
