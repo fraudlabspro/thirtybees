@@ -82,11 +82,12 @@ class fraudlabspro extends Module
 			return;
 		}
 
+		// Get and validate the IP using getIP
 		$ip = $this->getIP();
 
-		// Validate IP address
-		if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-			return; // Exit if IP is invalid
+		// Ensure an IP was returned
+		if ($ip === '') {
+			return; // No valid IP found, exit
 		}
 
 		// Securely insert into the database
@@ -513,7 +514,7 @@ class fraudlabspro extends Module
 
 	private function getIP()
 	{
-		// For development usage
+		// For development usage: generate a random public IP
 		if (isset($_SERVER['DEV_MODE'])) {
 			do {
 				$ip = mt_rand(0, 255) . '.' . mt_rand(0, 255) . '.' . mt_rand(0, 255) . '.' . mt_rand(0, 255);
@@ -522,25 +523,38 @@ class fraudlabspro extends Module
 			return $ip;
 		}
 
+		// Check if forwarded IP retrieval is enabled
 		if (Configuration::get('FLP_GET_FORWARDED_IP')) {
 			$headers = [
-				'HTTP_CF_CONNECTING_IP', 'X-Real-IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_INCAP_CLIENT_IP', 'HTTP_X_SUCURI_CLIENTIP',
+				'HTTP_CF_CONNECTING_IP',
+				'X-Real-IP',
+				'HTTP_X_FORWARDED_FOR',
+				'HTTP_INCAP_CLIENT_IP',
+				'HTTP_X_SUCURI_CLIENTIP',
 			];
 
+			// Loop through headers and return the first valid IP
 			foreach ($headers as $header) {
-				if (!isset($_SERVER[$header])) {
-					continue;
-				}
+				if (isset($_SERVER[$header])) {
+					// Extract the first IP if multiple IPs are present in the header
+					$ipList = explode(',', $_SERVER[$header]);
+					$ip = trim($ipList[0]);
 
-				if (!filter_var($_SERVER[$header], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-					continue;
+					// Validate the extracted IP
+					if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+						return $ip;
+					}
 				}
-
-				return $_SERVER[$header];
 			}
 		}
 
-		return $_SERVER['REMOTE_ADDR'];
+		// Fallback: validate REMOTE_ADDR and return if valid
+		if (isset($_SERVER['REMOTE_ADDR']) && filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+			return $_SERVER['REMOTE_ADDR'];
+		}
+
+		// Return empty string if no valid IP is found
+		return '';
 	}
 
 	private function hastIt($s, $prefix = 'fraudlabspro_')
