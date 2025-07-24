@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @copyright 2024 FraudLabsPro.com
+ * @copyright 2025 FraudLabsPro.com
  * @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  */
 if (!defined('_PS_VERSION_')) {
@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.1.2';
+		$this->version = '1.1.3';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -193,10 +193,13 @@ class fraudlabspro extends Module
 		} while ($attempts < 3);
 
 		if (($json = json_decode($body)) === null) {
+			if (class_exists('PrestaShopLogger')) {
+				PrestaShopLogger::addLog('FraudLabs Pro: Failed to decode API response for order ' . (int)$params['order']->id . '. Response: ' . $body, 3);
+			}
 			return true;
 		}
 
-		Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ . 'orders_fraudlabspro` (`id_order`, `api_response`, `status`, `is_blacklisted`) VALUES (' . (int) $params['order']->id . ', \'' . $body . '\', "' . $json->fraudlabspro_status . '", "0")');
+		Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ . 'orders_fraudlabspro` (`id_order`, `api_response`, `status`, `is_blacklisted`) VALUES (' . (int) $params['order']->id . ', \'' . pSQL($body) . '\', "' . pSQL($json->fraudlabspro_status) . '", "0")');
 
 		if (Configuration::get('FLP_APPROVE_STATUS_ID') && $json->fraudlabspro_status == 'APPROVE') {
 			$history = new OrderHistory();
@@ -259,18 +262,18 @@ class fraudlabspro extends Module
 			$this->smarty->assign([
 				'no_result'                  => false,
 				'fraud_score'                => $json->fraudlabspro_score,
-				'fraud_status'               => '<span style="font-size:1.5em;font-weight:bold;color:#' . (($row['status'] == 'APPROVE') ? '339933' : (($row['status'] == 'REVIEW') ? 'ff7f27' : 'f00')) . '">' . (($row['status'] == 'APPROVE') ? 'APPROVED' : (($row['status'] == 'REJECT') ? 'REJECTED' : $row['status'])) . '</span>',
+				'fraud_status'               => '<span style="font-size:1.5em;font-weight:bold;color:#' . (($row['status'] == 'APPROVE') ? '339933' : (($row['status'] == 'REVIEW') ? 'ff7f27' : 'f00')) . '">' . (($row['status'] == 'APPROVE') ? 'APPROVED' : (($row['status'] == 'REJECT') ? 'REJECTED' : htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8'))) . '</span>',
 				'remaining_credits'          => number_format($json->remaining_credits, 0, '', ','),
-				'client_ip'                  => $json->ip_geolocation->ip,
-				'location'                   => $location,
-				'coordinates'                => ($json->ip_geolocation->latitude !== null) ? ($json->ip_geolocation->latitude . ', ' . $json->ip_geolocation->longitude) : 'N/A',
-				'isp'                        => ($json->ip_geolocation->isp_name !== null) ? $json->ip_geolocation->isp_name : 'N/A',
-				'domain'                     => ($json->ip_geolocation->domain !== null) ? $json->ip_geolocation->domain : 'N/A',
-				'net_speed'                  => ($json->ip_geolocation->netspeed !== null) ? $json->ip_geolocation->netspeed : 'N/A',
+				'client_ip'                  => htmlspecialchars($json->ip_geolocation->ip, ENT_QUOTES, 'UTF-8'),
+				'location'                   => htmlspecialchars($location, ENT_QUOTES, 'UTF-8'),
+				'coordinates'                => ($json->ip_geolocation->latitude !== null) ? htmlspecialchars($json->ip_geolocation->latitude . ', ' . $json->ip_geolocation->longitude, ENT_QUOTES, 'UTF-8') : 'N/A',
+				'isp'                        => ($json->ip_geolocation->isp_name !== null) ? htmlspecialchars($json->ip_geolocation->isp_name, ENT_QUOTES, 'UTF-8') : 'N/A',
+				'domain'                     => ($json->ip_geolocation->domain !== null) ? htmlspecialchars($json->ip_geolocation->domain, ENT_QUOTES, 'UTF-8') : 'N/A',
+				'net_speed'                  => ($json->ip_geolocation->netspeed !== null) ? htmlspecialchars($json->ip_geolocation->netspeed, ENT_QUOTES, 'UTF-8') : 'N/A',
 				'is_proxy'                   => ($json->ip_geolocation->is_proxy !== null) ? (($json->ip_geolocation->is_proxy) ? 'Yes' : 'No') : 'N/A',
-				'usage_type'                 => implode(', ', $json->ip_geolocation->usage_type),
-				'time_zone'                  => ($json->ip_geolocation->timezone !== null) ? ('UTC ' . $json->ip_geolocation->timezone) : 'N/A',
-				'distance'                   => ($json->billing_address->ip_distance_in_mile !== null) ? ($json->billing_address->ip_distance_in_mile . ' Miles') : 'N/A',
+				'usage_type'                 => htmlspecialchars(implode(', ', $json->ip_geolocation->usage_type), ENT_QUOTES, 'UTF-8'),
+				'time_zone'                  => ($json->ip_geolocation->timezone !== null) ? ('UTC ' . htmlspecialchars($json->ip_geolocation->timezone, ENT_QUOTES, 'UTF-8')) : 'N/A',
+				'distance'                   => ($json->billing_address->ip_distance_in_mile !== null) ? (htmlspecialchars($json->billing_address->ip_distance_in_mile, ENT_QUOTES, 'UTF-8') . ' Miles') : 'N/A',
 				'is_free_email'              => ($json->email_address->is_free !== null) ? (($json->email_address->is_free) ? 'Yes' : 'No') : 'N/A',
 				'is_ship_forward'            => ($json->shipping_address->is_address_ship_forward !== null) ? (($json->shipping_address->is_address_ship_forward) ? 'Yes' : 'No') : 'N/A',
 				'is_email_blacklist'         => ($json->email_address->is_in_blacklist !== null) ? (($json->email_address->is_in_blacklist) ? 'Yes' : 'No') : 'N/A',
@@ -278,9 +281,9 @@ class fraudlabspro extends Module
 				'is_bin_found'               => ($json->credit_card->is_bin_exist !== null) ? (($json->credit_card->is_bin_exist) ? 'Yes' : 'No') : 'N/A',
 				'is_ip_blacklist'            => ($json->ip_geolocation->is_in_blacklist !== null) ? (($json->ip_geolocation->is_in_blacklist) ? 'Yes' : 'No') : 'N/A',
 				'is_device_blacklist'        => ($json->device->is_in_blacklist !== null) ? (($json->device->is_in_blacklist) ? 'Yes' : 'No') : 'N/A',
-				'triggered_rules'            => implode(', ', $json->fraudlabspro_rules),
-				'transaction_id'             => $json->fraudlabspro_id,
-				'error_message'              => (isset($json->error->error_message)) ? $json->error->error_message : '',
+				'triggered_rules'            => htmlspecialchars(implode(', ', $json->fraudlabspro_rules), ENT_QUOTES, 'UTF-8'),
+				'transaction_id'             => htmlspecialchars($json->fraudlabspro_id, ENT_QUOTES, 'UTF-8'),
+				'error_message'              => (isset($json->error->error_message)) ? htmlspecialchars($json->error->error_message, ENT_QUOTES, 'UTF-8') : '',
 				'show_approve_reject_button' => ($row['status'] == 'REVIEW') ? true : false,
 				'show_blacklist_button'      => ($row['is_blacklisted']) ? false : true,
 			]);
@@ -531,6 +534,12 @@ class fraudlabspro extends Module
 				'HTTP_X_FORWARDED_FOR',
 				'HTTP_INCAP_CLIENT_IP',
 				'HTTP_X_SUCURI_CLIENTIP',
+				'HTTP_X_REAL_IP',
+				'HTTP_X_FORWARDED',
+				'HTTP_X_CLUSTER_CLIENT_IP',
+				'HTTP_FORWARDED_FOR',
+				'HTTP_FORWARDED',
+				'HTTP_VIA',
 			];
 
 			// Loop through headers and return the first valid IP
