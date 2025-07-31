@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.1.3';
+		$this->version = '1.2.0';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -566,13 +566,14 @@ class fraudlabspro extends Module
 		return '';
 	}
 
-	private function hastIt($s, $prefix = 'fraudlabspro_')
+	private function hastIt($s)
 	{
-		$hash = $prefix . $s;
-		for ($i = 0; $i < 65536; ++$i) {
-			$hash = sha1($prefix . $hash);
+		$hash = 'fraudlabspro_' . $s;
+
+		for ($i = 0; $i < 65536; $i++) {
+			$hash = sha1('fraudlabspro_' . $hash);
 		}
 
-		return $hash;
+		return hash('sha256', $hash);
 	}
 }
