@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.2.0';
+		$this->version = '1.3.0';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -154,6 +154,7 @@ class fraudlabspro extends Module
 						'ip'              => $ip,
 						'first_name'      => $address_invoice->firstname,
 						'last_name'       => $address_invoice->lastname,
+						'bill_to'         => $address_invoice->company,
 						'bill_city'       => $address_invoice->city,
 						'bill_state'      => $bill_state,
 						'bill_country'    => Country::getIsoById((int) $address_invoice->id_country),
