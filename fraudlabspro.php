@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.3.0';
+		$this->version = '1.3.1';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -160,7 +160,7 @@ class fraudlabspro extends Module
 						'bill_country'    => Country::getIsoById((int) $address_invoice->id_country),
 						'bill_zip_code'   => $address_invoice->postcode,
 						'email_domain'    => substr($customer->email, strpos($customer->email, '@') + 1),
-						'email_hash'      => $this->hastIt($customer->email),
+						'email_hash'      => $this->hashIt($customer->email),
 						'email'           => $customer->email,
 						'user_phone'      => $address_invoice->phone,
 						'ship_addr'       => trim($address_delivery->address1 . ' ' . $address_delivery->address2),
@@ -567,7 +567,7 @@ class fraudlabspro extends Module
 		return '';
 	}
 
-	private function hastIt($s)
+	private function hashIt($s)
 	{
 		$hash = 'fraudlabspro_' . $s;
 
