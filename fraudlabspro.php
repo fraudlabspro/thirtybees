@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.3.1';
+		$this->version = '1.4.0';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -118,7 +118,8 @@ class fraudlabspro extends Module
 		$quantity = 0;
 		foreach ($product_list as $product) {
 			$quantity += $product['product_quantity'];
-			$items[] = $product['product_reference'] . ':' . $product['price'] . ':' . ((empty($product['download_hash'])) ? 'physical' : 'downloadable');
+			// $items[] = $product['product_reference'] . ':' . $product['price'] . ':' . ((empty($product['download_hash'])) ? 'physical' : 'downloadable');
+			$items[] = ["sku" => $product['product_reference'], "quantity" => $product['product_quantity'], "price" => $product['price'], "name" => $product['product_name'], "purchase_type" => ((empty($product['download_hash'])) ? 'physical' : 'downloadable')];
 		}
 
 		$coupon_code = '';
@@ -172,7 +173,8 @@ class fraudlabspro extends Module
 						'quantity'        => $quantity,
 						'currency'        => $default_currency->iso_code,
 						'user_order_id'   => $params['order']->id,
-						'items'           => implode(',', $items),
+						// 'items'           => implode(',', $items),
+						'items'           => json_encode($items),
 						'coupon_code'     => $coupon_code,
 						'payment_gateway' => $params['order']->payment,
 						'flp_checksum'    => Context::getContext()->cookie->flp_checksum,
@@ -237,14 +239,32 @@ class fraudlabspro extends Module
 			if (Tools::getValue('approve')) {
 				if ($this->feedback('APPROVE', Tools::getValue('transactionId'))) {
 					Db::getInstance()->execute('UPDATE `' . _DB_PREFIX_ . 'orders_fraudlabspro` SET `status` = \'APPROVE\' WHERE id_order = ' . (int) $params['id_order'] . ' LIMIT 1');
+					if (Configuration::get('FLP_APPROVE_STATUS_ID')) {
+						$history = new OrderHistory();
+						$history->id_order = $params['id_order'];
+						$history->changeIdOrderState((int) Configuration::get('FLP_APPROVE_STATUS_ID'), $params['id_order'], true);
+						$history->add();
+					}
 				}
 			} elseif (Tools::getValue('reject')) {
 				if ($this->feedback('REJECT', Tools::getValue('transactionId'))) {
 					Db::getInstance()->execute('UPDATE `' . _DB_PREFIX_ . 'orders_fraudlabspro` SET `status` = \'REJECT\' WHERE id_order = ' . (int) $params['id_order'] . ' LIMIT 1');
+					if (Configuration::get('FLP_REJECT_STATUS_ID')) {
+						$history = new OrderHistory();
+						$history->id_order = $params['id_order'];
+						$history->changeIdOrderState((int) Configuration::get('FLP_REJECT_STATUS_ID'), $params['id_order'], true);
+						$history->add();
+					}
 				}
 			} elseif (Tools::getValue('blacklist')) {
 				if ($this->feedback('REJECT_BLACKLIST', Tools::getValue('transactionId'), Tools::getValue('reason'))) {
 					Db::getInstance()->execute('UPDATE `' . _DB_PREFIX_ . 'orders_fraudlabspro` SET `status` = \'REJECT\', `is_blacklisted` = "1" WHERE id_order = ' . (int) $params['id_order'] . ' LIMIT 1');
+					if (Configuration::get('FLP_REJECT_STATUS_ID')) {
+						$history = new OrderHistory();
+						$history->id_order = $params['id_order'];
+						$history->changeIdOrderState((int) Configuration::get('FLP_REJECT_STATUS_ID'), $params['id_order'], true);
+						$history->add();
+					}
 				}
 			}
 		}
