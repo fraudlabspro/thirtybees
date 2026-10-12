@@ -1,8 +1,14 @@
 ## Overview
 
-This fraud prevention module helps merchants to detect payment fraud. It will screens every order transacted on ThirtyBees e-commerce platform in real-time to uncover fraud patterns, that will inevitably minimize the chargeback and fraud losses. The system also allows you to create your own custom validation rules that suit to your business needs. Please visit the [FraudLabs Pro Features](https://www.fraudlabspro.com/features) page to learn more about the type of fraud validation performed and how it could help you to prevent the payment fraud. 
+This fraud prevention module helps merchants to detect payment fraud. It will screens every order transacted on ThirtyBees e-commerce platform in real-time to uncover fraud patterns, that will inevitably minimize the chargeback and fraud losses. The system also allows you to create your own custom validation rules that suit to your business needs. 
 
-Did I mention that you can use it for free? Yes, you can sign up for the [Free Micro Plan](https://www.fraudlabspro.com/pricing) that enable you to validate up to 500 orders every month.
+Learn more about our fraud validation capabilities on the [FraudLabs Pro Features](https://www.fraudlabspro.com/features) page.
+
+### Get Started for Free
+
+The fraud prevention module is free to use, allowing you to validate up to 500 orders per month.
+
+[Sign Up for the Free Micro Plan](https://www.fraudlabspro.com/checkout-micro)
 
 ### Installation
 
