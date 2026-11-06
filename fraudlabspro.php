@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.4.0';
+		$this->version = '1.5.0';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -141,6 +141,47 @@ class fraudlabspro extends Module
 			$bill_state = $State->iso_code;
 		}
 
+		$is_local_pickup = $this->isLocalPickup(new Carrier((int) $params['order']->id_carrier));
+		$ship_method = $is_local_pickup
+			? 'local_pickup'
+			: 'standard_delivery';
+		
+		$payload = [
+			'key'             => Configuration::get('FLP_LICENSE_KEY'),
+			'ip'              => $ip,
+			'first_name'      => $address_invoice->firstname,
+			'last_name'       => $address_invoice->lastname,
+			'bill_to'         => $address_invoice->company,
+			'bill_city'       => $address_invoice->city,
+			'bill_state'      => $bill_state,
+			'bill_country'    => Country::getIsoById((int) $address_invoice->id_country),
+			'bill_zip_code'   => $address_invoice->postcode,
+			'email_domain'    => substr($customer->email, strpos($customer->email, '@') + 1),
+			'email_hash'      => $this->hastIt($customer->email),
+			'email'           => $customer->email,
+			'user_phone'      => $address_invoice->phone,
+			'ship_method'     => $ship_method,
+			'amount'          => $params['order']->total_paid,
+			'quantity'        => $quantity,
+			'currency'        => $default_currency->iso_code,
+			'user_order_id'   => $params['order']->id,
+			'items'           => implode(',', $items),
+			'coupon_code'     => $coupon_code,
+			'payment_gateway' => $params['order']->payment,
+			'flp_checksum'    => Context::getContext()->cookie->flp_checksum,
+			'format'          => 'json',
+			'source'          => 'thirtybees',
+			'source_version'  => $this->version,
+		];
+		
+		if (! $is_local_pickup) {
+			$payload['ship_addr'] = trim($address_delivery->address1 . ' ' . $address_delivery->address2);
+			$payload['ship_city'] = $address_delivery->city;
+			$payload['ship_state'] = (Tools::getIsset($delivery_state->iso_code)) ? $delivery_state->iso_code : '';
+			$payload['ship_zip_code'] = $address_delivery->postcode;
+			$payload['ship_country'] = Country::getIsoById((int) $address_delivery->id_country);
+		}
+
 		$guzzle = new GuzzleHttp\Client([
 			'timeout' => 60,
 			'verify'  => Configuration::getSslTrustStore(),
@@ -150,38 +191,7 @@ class fraudlabspro extends Module
 		do {
 			try {
 				$body = $guzzle->post('https://api.fraudlabspro.com/v2/order/screen', [
-					'form_params' => [
-						'key'             => Configuration::get('FLP_LICENSE_KEY'),
-						'ip'              => $ip,
-						'first_name'      => $address_invoice->firstname,
-						'last_name'       => $address_invoice->lastname,
-						'bill_to'         => $address_invoice->company,
-						'bill_city'       => $address_invoice->city,
-						'bill_state'      => $bill_state,
-						'bill_country'    => Country::getIsoById((int) $address_invoice->id_country),
-						'bill_zip_code'   => $address_invoice->postcode,
-						'email_domain'    => substr($customer->email, strpos($customer->email, '@') + 1),
-						'email_hash'      => $this->hashIt($customer->email),
-						'email'           => $customer->email,
-						'user_phone'      => $address_invoice->phone,
-						'ship_addr'       => trim($address_delivery->address1 . ' ' . $address_delivery->address2),
-						'ship_city'       => $address_delivery->city,
-						'ship_state'      => (Tools::getIsset($delivery_state->iso_code)) ? $delivery_state->iso_code : '',
-						'ship_zip_code'   => $address_delivery->postcode,
-						'ship_country'    => Country::getIsoById((int) $address_delivery->id_country),
-						'amount'          => $params['order']->total_paid,
-						'quantity'        => $quantity,
-						'currency'        => $default_currency->iso_code,
-						'user_order_id'   => $params['order']->id,
-						// 'items'           => implode(',', $items),
-						'items'           => json_encode($items),
-						'coupon_code'     => $coupon_code,
-						'payment_gateway' => $params['order']->payment,
-						'flp_checksum'    => Context::getContext()->cookie->flp_checksum,
-						'format'          => 'json',
-						'source'          => 'thirtybees',
-						'source_version'  => $this->version,
-					],
+					'form_params' => $payload,
 				])->getBody();
 			} catch (GuzzleException $e) {
 				++$attempts;
@@ -585,6 +595,29 @@ class fraudlabspro extends Module
 
 		// Return empty string if no valid IP is found
 		return '';
+	}
+
+	/** Detect pickup / click and collect carriers. */
+	private function isLocalPickup($carrier)
+	{
+		if (!Validate::isLoadedObject($carrier)) {
+			return false;
+		}
+
+		// Carrier "0" is shown as the shop name (pickup convention)
+		if (trim((string) $carrier->name) === '0') {
+			return true;
+		}
+
+		$name = Tools::strtolower((string) $carrier->name);
+
+		foreach (['pickup', 'pick up', 'pick-up', 'collect', 'in-store', 'in store', 'curbside'] as $keyword) {
+			if (strpos($name, $keyword) !== false) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function hashIt($s)
