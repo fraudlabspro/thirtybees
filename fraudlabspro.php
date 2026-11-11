@@ -17,7 +17,7 @@ class fraudlabspro extends Module
 	{
 		$this->name = 'fraudlabspro';
 		$this->tab = 'payment_security';
-		$this->version = '1.5.0';
+		$this->version = '1.6.0';
 		$this->author = 'FraudLabs Pro';
 		$this->controllers = ['payment', 'validation'];
 		$this->module_key = '3122a09eb6886205eaef0857a9d9d077';
@@ -39,7 +39,7 @@ class fraudlabspro extends Module
 		Configuration::updateValue('FLP_LICENSE_KEY', '');
 
 		Db::getInstance()->Execute('
-		CREATE TABLE `' . _DB_PREFIX_ . 'orders_fraudlabspro` (
+		CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'orders_fraudlabspro` (
 			`id_order` INT(10) UNSIGNED NOT NULL,
 			`api_response` TEXT NOT NULL COLLATE \'utf8_bin\',
 			`status` VARCHAR(10) NOT NULL COLLATE \'utf8_bin\',
@@ -326,6 +326,76 @@ class fraudlabspro extends Module
 
 		return $this->display(__FILE__, 'admin_order.tpl');
 	}
+	
+	/**
+	 * Screen a user with FraudLabs Pro.
+	 *
+	 * @return string|null 'APPROVE', 'REVIEW', 'REJECT', or null if screening could not be completed
+	 */
+	public function screenUser($email, $firstName, $lastName, $phone = '')
+	{
+		if (!Configuration::get('PS_SHOP_ENABLE') || !Configuration::get('FLP_LICENSE_KEY') || !Configuration::get('FLP_ENABLED_ATO')) {
+			return null;
+		}
+		$licenseKey = Configuration::get('FLP_LICENSE_KEY');
+
+		$data = [
+			'key'        => $licenseKey,
+			'email'      => $email,
+			'first_name' => $firstName,
+			'last_name'  => $lastName,
+		];
+		if (trim($phone) !== '') {
+			$data['phone'] = trim($phone);
+		}
+
+		$guzzle = new GuzzleHttp\Client([
+			'timeout'         => 8,
+			'connect_timeout' => 3,
+			'verify'          => Configuration::getSslTrustStore(),
+		]);
+
+		$body = null;
+		for ($attempt = 0; $attempt < 2; ++$attempt) {
+			try {
+				$body = (string) $guzzle->post('https://api.fraudlabspro.com/v2/user/screen', [
+					'form_params' => $data,
+				])->getBody();
+				break;
+			} catch (\GuzzleHttp\Exception\GuzzleException $e) {
+				// try once more
+			}
+		}
+
+		if ($body === null) {
+			PrestaShopLogger::addLog('FraudLabs Pro: user screening API unreachable.', 3);
+			return null;
+		}
+
+		$json = json_decode($body);
+		if (!is_object($json) || !isset($json->user_transaction_status)) {
+			PrestaShopLogger::addLog('FraudLabs Pro: Failed to decode API response. Response: ' . $body, 3);
+			return null;
+		}
+
+		return strtoupper((string) $json->user_transaction_status);
+	}
+
+	public function getCustomerPhone($customer)
+	{
+		$addresses = $customer->getAddresses((int) $this->context->language->id);
+
+		foreach ($addresses as $address) {
+			if (!empty($address['phone_mobile'])) {
+				return $address['phone_mobile'];
+			}
+			if (!empty($address['phone'])) {
+				return $address['phone'];
+			}
+		}
+
+		return '';
+	}
 
 	public function renderForm()
 	{
@@ -412,6 +482,22 @@ class fraudlabspro extends Module
 					],
 					[
 						'type'   => 'checkbox',
+						'name'   => 'FLP_ENABLED_ATO',
+						'values' => [
+							'query' => [
+								[
+									'id'   => 'on',
+									'name' => $this->l('Enable Account Takeover (ATO) Fraud Prevention'),
+									'val'  => '1',
+								],
+							],
+							'id'   => 'id',
+							'name' => 'name',
+						],
+						'desc' => $this->l('Enable this option to validate user events against Account Takeover (ATO) Fraud.'),
+					],
+					[
+						'type'   => 'checkbox',
 						'name'   => 'FLP_GET_FORWARDED_IP',
 						'values' => [
 							'query' => [
@@ -477,6 +563,7 @@ class fraudlabspro extends Module
 			'FLP_APPROVE_STATUS_ID'   => Tools::getValue('FLP_APPROVE_STATUS_ID', Configuration::get('FLP_APPROVE_STATUS_ID')),
 			'FLP_REVIEW_STATUS_ID'    => Tools::getValue('FLP_REVIEW_STATUS_ID', Configuration::get('FLP_REVIEW_STATUS_ID')),
 			'FLP_REJECT_STATUS_ID'    => Tools::getValue('FLP_REJECT_STATUS_ID', Configuration::get('FLP_REJECT_STATUS_ID')),
+			'FLP_ENABLED_ATO_on' => Tools::getValue('FLP_ENABLED_ATO_on', Configuration::get('FLP_ENABLED_ATO')),
 			'FLP_GET_FORWARDED_IP_on' => Tools::getValue('FLP_GET_FORWARDED_IP_on', Configuration::get('FLP_GET_FORWARDED_IP')),
 			'FLP_PURGE_on'            => Tools::getValue('FLP_PURGE_on', Configuration::get('FLP_PURGE')),
 		];
@@ -490,6 +577,7 @@ class fraudlabspro extends Module
 			Configuration::updateValue('FLP_APPROVE_STATUS_ID', Tools::getValue('FLP_APPROVE_STATUS_ID'));
 			Configuration::updateValue('FLP_REVIEW_STATUS_ID', Tools::getValue('FLP_REVIEW_STATUS_ID'));
 			Configuration::updateValue('FLP_REJECT_STATUS_ID', Tools::getValue('FLP_REJECT_STATUS_ID'));
+			Configuration::updateValue('FLP_ENABLED_ATO', Tools::getValue('FLP_ENABLED_ATO_on'));
 			Configuration::updateValue('FLP_GET_FORWARDED_IP', Tools::getValue('FLP_GET_FORWARDED_IP_on'));
 
 			if (Tools::getValue('FLP_PURGE_on') == '1') {

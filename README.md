@@ -1,14 +1,8 @@
 ## Overview
 
-This fraud prevention module helps merchants to detect payment fraud. It will screens every order transacted on ThirtyBees e-commerce platform in real-time to uncover fraud patterns, that will inevitably minimize the chargeback and fraud losses. The system also allows you to create your own custom validation rules that suit to your business needs. 
+This fraud prevention module helps merchants to detect payment fraud. It will screens every order transacted on ThirtyBees e-commerce platform in real-time to uncover fraud patterns, that will inevitably minimize the chargeback and fraud losses. The system also allows you to create your own custom validation rules that suit to your business needs. Please visit the [FraudLabs Pro Features](https://www.fraudlabspro.com/features) page to learn more about the type of fraud validation performed and how it could help you to prevent the payment fraud. Starting from version 1.6.0, the module can also screen **customer account activity** (login, registration, password changes, profile updates and address changes) using the FraudLabs Pro User Screening API, and block the action when the result is `REJECT`.
 
-Learn more about our fraud validation capabilities on the [FraudLabs Pro Features](https://www.fraudlabspro.com/features) page.
-
-### Get Started for Free
-
-The fraud prevention module is free to use, allowing you to validate up to 500 orders per month.
-
-[Sign Up For Free Micro Plan](https://www.fraudlabspro.com/checkout-micro)
+Did I mention that you can use it for free? Yes, you can sign up for the [Free Micro Plan](https://www.fraudlabspro.com/pricing) that enable you to validate up to 500 orders every month.
 
 ### Installation
 
@@ -22,6 +16,27 @@ The fraud prevention module is free to use, allowing you to validate up to 500 o
 8. Click on the **Install** button to install the module.
 9. Once successfully installed, click on **Configure** link.
 10. If you need FraudLabs Pro change the order status, you can select the corresponding Approve, Review, and Reject status.
+11. To enable or disable account screening, enable the **Enable Account Takeover (ATO) Fraud Prevention** in the module configuration. See [Account Screening](#account-screening) below before enabling it on a live shop.
+
+#### How Account Screening works
+
+To block these actions, the module **overrides** four thirty bees front-office controllers. The override files are installed automatically with the module:
+
+- `override/controllers/front/AuthController.php`
+- `override/controllers/front/IdentityController.php`
+- `override/controllers/front/PasswordController.php`
+- `override/controllers/front/AddressController.php`
+
+If another module or your theme already overrides one of these controllers, thirty bees will refuse to install the new override and report which one conflicts. In that case, either remove the other override or merge the code by hand. Contact us if you need help.
+
+#### Upgrading
+
+Upload the new module files and open *Modules and Services*. The upgrade adds the override files automatically. If login or registration is not screened afterwards, delete `cache/class_index.php` and clear the cache under *Advanced Parameters → Performance*.
+
+#### Uninstalling
+
+Uninstalling the module removes its overrides. Clear the cache afterwards.
 
 #### License & Copyrights
+
 This module is licensed under MIT and copyrighted to FraudLabsPro.com
